@@ -1,68 +1,47 @@
-import streamlit as st
-import os
+from youtube_transcript_api import YouTubeTranscriptApi
+from urllib.parse import urlparse, parse_qs
+import re
 
-# --- NEW IMPORTS ---
-from cloud_transcriber import get_youtube_transcript
-from scraper import extract_text_from_url
-from intelligence import generate_notes
+def extract_video_id(url):
+    """Extracts the 11-character video ID from various YouTube URL formats."""
+    query = urlparse(url)
+    if query.hostname == 'youtu.be':
+        return query.path[1:]
+    if query.hostname in ('www.youtube.com', 'youtube.com'):
+        if query.path == '/watch':
+            p = parse_qs(query.query)
+            return p.get('v', [None])[0]
+        if query.path[:7] == '/embed/':
+            return query.path.split('/')[2]
+        if query.path[:3] == '/v/':
+            return query.path.split('/')[2]
+    
+    # Fallback regex for tricky URLs
+    match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
+    return match.group(1) if match else None
 
-# --- UI Configuration ---
-st.set_page_config(page_title="AI Video Extractor", page_icon="🧠", layout="wide")
-
-st.title("🧠 AI-Powered Video Knowledge Extractor")
-st.markdown("Turn hour-long videos and external articles into structured study notes in minutes.")
-
-# --- Sidebar for Settings ---
-with st.sidebar:
-    st.header("⚙️ Configuration")
-    api_key = st.text_input("Enter Gemini API Key:", type="password")
-    st.markdown("[Get your free API key here](https://aistudio.google.com/)")
-
-# --- Main Interface ---
-yt_url = st.text_input("🔗 YouTube Video URL:", placeholder="https://www.youtube.com/watch?v=...")
-context_url = st.text_input("📄 External Context URL (Optional):", placeholder="Link to a research paper, article, or Wikipedia page")
-
-if st.button("Generate Notes", type="primary"):
-    if not api_key:
-        st.error("Please enter your Gemini API Key in the sidebar first.")
-    elif not yt_url:
-        st.warning("Please provide a YouTube link.")
-    else:
-        os.environ["GOOGLE_API_KEY"] = api_key
+def get_youtube_transcript(video_url):
+    """
+    Fetches the transcript directly from YouTube's subtitle API.
+    """
+    video_id = extract_video_id(video_url)
+    
+    if not video_id:
+        print("Error: Could not extract Video ID from URL.")
+        return None
         
-        with st.status("Processing Request...", expanded=True) as status:
-            
-            st.write("📥 Fetching Transcript from YouTube API...")
-            # --- NEW CLOUD-NATIVE PIPELINE ---
-            transcript = get_youtube_transcript(yt_url)
-            
-            if not transcript:
-                status.update(label="Failed to fetch transcript. Video might not have closed captions enabled.", state="error")
-                st.stop()
-
-            external_text = None
-            if context_url:
-                st.write("🌐 Scraping external context link...")
-                external_text = extract_text_from_url(context_url)
-
-            st.write("🧠 Generating structured notes via Gemini...")
-            final_notes = generate_notes(transcript, external_context=external_text)
-            
-            if not final_notes:
-                status.update(label="Failed to generate notes.", state="error")
-                st.stop()
-                
-            status.update(label="Extraction Complete!", state="complete", expanded=False)
-
-        # --- Output the Results ---
-        st.success("Notes successfully generated!")
+    try:
+        # Fetch the transcript list for the video
+        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
         
-        with st.container(border=True):
-            st.markdown(final_notes)
-            
-        st.download_button(
-            label="Download Notes (.md)",
-            data=final_notes,
-            file_name="video_notes.md",
-            mime="text/markdown"
-        )
+        # Combine all the text blocks into one giant string
+        full_transcript = " ".join([segment['text'] for segment in transcript_list])
+        
+        # Clean up any weird formatting
+        full_transcript = full_transcript.replace('\n', ' ')
+        
+        return full_transcript
+        
+    except Exception as e:
+        print(f"Failed to fetch transcript: {e}")
+        return None
