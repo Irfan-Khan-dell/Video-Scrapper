@@ -30,26 +30,16 @@ def get_youtube_transcript(video_url):
         print("Error: Could not extract Video ID from URL.")
         return None
         
-    try:
-        # Pull the list of available transcripts
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        
-        try:
-            # Step 1: Try to find ANY English transcript (manual or auto-generated)
-            transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+   try:
+            # Try English first
+            transcript = transcript_list.find_transcript(['en'])
         except:
-            # Step 2: If no English, grab the first available transcript (e.g., Hindi)
-            transcript = transcript_list.filter(lambda t: True)[0]
-            # Translate it to English
-            if transcript.language_code != 'en':
-                transcript = transcript.translate('en')
-
-        # Fetch the actual text
-        transcript_data = transcript.fetch()
-        full_transcript = " ".join([segment['text'] for segment in transcript_data])
-        full_transcript = full_transcript.replace('\n', ' ')
-        
-        return full_transcript
+            try:
+                # If that fails, try to find ANY transcript and translate
+                transcript = transcript_list.find_manually_created_transcript()
+            except:
+                # Last resort: just get the first one available
+                transcript = transcript_list.find_generated_transcript(['en'])
         
     except Exception as e:
         # CRITICAL: We print the exact error to the server logs so we can read it
