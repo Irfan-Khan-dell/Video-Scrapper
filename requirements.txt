@@ -1,0 +1,7 @@
+yt-dlp
+openai-whisper
+requests
+beautifulsoup4
+langchain
+langchain-google-genai
+streamlit
