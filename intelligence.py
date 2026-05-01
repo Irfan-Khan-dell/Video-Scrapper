@@ -8,7 +8,7 @@ from langchain_core.output_parsers import StrOutputParser
 # but for testing, you can uncomment the line below and paste your key.
 # os.environ["GOOGLE_API_KEY"] = "YOUR_GEMINI_API_KEY_HERE"
 
-def generate_notes(transcript, external_context=None, model_name="gemini-1.5-flash"):
+def generate_notes(transcript, external_context=None, model_name="gemini-2.5-flash"):
     """
     Feeds the transcript and optional scraped context to the Gemini API
     to generate structured, markdown-formatted notes.
