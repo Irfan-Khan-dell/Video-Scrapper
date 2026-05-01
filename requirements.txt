@@ -1,8 +1,6 @@
-yt-dlp
-openai-whisper
+youtube-transcript-api
 requests
 beautifulsoup4
 langchain
 langchain-google-genai
 streamlit
-youtube-transcript-api
