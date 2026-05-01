@@ -9,7 +9,7 @@ def download_audio(youtube_url, output_folder="audio_files"):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    # Configure yt-dlp options
+   # Configure yt-dlp options
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': os.path.join(output_folder, '%(title)s.%(ext)s'),
@@ -18,8 +18,15 @@ def download_audio(youtube_url, output_folder="audio_files"):
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'quiet': False, # Set to True later if you don't want terminal output
-        'extract_flat': False
+        'quiet': False,
+        'extract_flat': False,
+        
+        # --- CLOUD DEPLOYMENT FIX ---
+        # Force YouTube to treat this as a mobile app request, which bypasses 
+        # most 403 Forbidden blocks on datacenter IPs.
+        'extractor_args': {
+            'youtube': ['player_client=android']
+        }
     }
 
     try:
