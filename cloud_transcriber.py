@@ -22,7 +22,7 @@ def extract_video_id(url):
 def get_youtube_transcript(video_url):
     """
     Fetches the transcript directly from YouTube.
-    Includes logic to handle auto-generated and foreign language captions.
+    Includes fallback logic for manual, auto-generated, and foreign language captions.
     """
     video_id = extract_video_id(video_url)
     
@@ -30,20 +30,30 @@ def get_youtube_transcript(video_url):
         print("Error: Could not extract Video ID from URL.")
         return None
         
-   try:
-            # Try English first
+    try:
+        # Step 1: Get the list of all available transcripts
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        
+        try:
+            # Step 2: Try to find a standard English transcript
             transcript = transcript_list.find_transcript(['en'])
         except:
             try:
-                # If that fails, try to find ANY transcript and translate
-                transcript = transcript_list.find_manually_created_transcript()
+                # Step 3: Try to find a manually created transcript in ANY language and translate to English
+                transcript = transcript_list.find_manually_created_transcript().translate('en')
             except:
-                # Last resort: just get the first one available
+                # Step 4: Final fallback to auto-generated English captions
                 transcript = transcript_list.find_generated_transcript(['en'])
+
+        # Step 5: Fetch and join the text
+        transcript_data = transcript.fetch()
+        full_transcript = " ".join([segment['text'] for segment in transcript_data])
+        return full_transcript.replace('\n', ' ')
         
     except Exception as e:
-        # CRITICAL: We print the exact error to the server logs so we can read it
         print(f"--- DETAILED YOUTUBE ERROR ---")
         print(str(e))
+        print("------------------------------")
+        return None
         print("------------------------------")
         return None
