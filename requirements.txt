@@ -5,3 +5,4 @@ beautifulsoup4
 langchain
 langchain-google-genai
 streamlit
+youtube-transcript-api
