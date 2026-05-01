@@ -16,13 +16,13 @@ def extract_video_id(url):
         if query.path[:3] == '/v/':
             return query.path.split('/')[2]
     
-    # Fallback regex for tricky URLs
     match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
     return match.group(1) if match else None
 
 def get_youtube_transcript(video_url):
     """
-    Fetches the transcript directly from YouTube's subtitle API.
+    Fetches the transcript directly from YouTube.
+    Includes logic to handle auto-generated and foreign language captions.
     """
     video_id = extract_video_id(video_url)
     
@@ -31,17 +31,29 @@ def get_youtube_transcript(video_url):
         return None
         
     try:
-        # Fetch the transcript list for the video
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        # Pull the list of available transcripts
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
-        # Combine all the text blocks into one giant string
-        full_transcript = " ".join([segment['text'] for segment in transcript_list])
-        
-        # Clean up any weird formatting
+        try:
+            # Step 1: Try to find ANY English transcript (manual or auto-generated)
+            transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+        except:
+            # Step 2: If no English, grab the first available transcript (e.g., Hindi)
+            transcript = transcript_list.filter(lambda t: True)[0]
+            # Translate it to English
+            if transcript.language_code != 'en':
+                transcript = transcript.translate('en')
+
+        # Fetch the actual text
+        transcript_data = transcript.fetch()
+        full_transcript = " ".join([segment['text'] for segment in transcript_data])
         full_transcript = full_transcript.replace('\n', ' ')
         
         return full_transcript
         
     except Exception as e:
-        print(f"Failed to fetch transcript: {e}")
+        # CRITICAL: We print the exact error to the server logs so we can read it
+        print(f"--- DETAILED YOUTUBE ERROR ---")
+        print(str(e))
+        print("------------------------------")
         return None
