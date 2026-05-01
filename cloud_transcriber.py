@@ -3,57 +3,36 @@ from urllib.parse import urlparse, parse_qs
 import re
 
 def extract_video_id(url):
-    """Extracts the 11-character video ID from various YouTube URL formats."""
     query = urlparse(url)
-    if query.hostname == 'youtu.be':
-        return query.path[1:]
+    if query.hostname == 'youtu.be': return query.path[1:]
     if query.hostname in ('www.youtube.com', 'youtube.com'):
-        if query.path == '/watch':
-            p = parse_qs(query.query)
-            return p.get('v', [None])[0]
-        if query.path[:7] == '/embed/':
-            return query.path.split('/')[2]
-        if query.path[:3] == '/v/':
-            return query.path.split('/')[2]
-    
+        if query.path == '/watch': return parse_qs(query.query).get('v', [None])[0]
+        if query.path[:7] == '/embed/': return query.path.split('/')[2]
     match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
     return match.group(1) if match else None
 
 def get_youtube_transcript(video_url):
-    """
-    Fetches the transcript directly from YouTube.
-    Includes fallback logic for manual, auto-generated, and foreign language captions.
-    """
     video_id = extract_video_id(video_url)
-    
-    if not video_id:
-        print("Error: Could not extract Video ID from URL.")
-        return None
+    if not video_id: return None
         
     try:
-        # Step 1: Get the list of all available transcripts
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
+        # Priority 1: Manual English
+        # Priority 2: Auto-generated English
+        # Priority 3: Translation from any available language
         try:
-            # Step 2: Try to find a standard English transcript
             transcript = transcript_list.find_transcript(['en'])
         except:
             try:
-                # Step 3: Try to find a manually created transcript in ANY language and translate to English
-                transcript = transcript_list.find_manually_created_transcript().translate('en')
-            except:
-                # Step 4: Final fallback to auto-generated English captions
                 transcript = transcript_list.find_generated_transcript(['en'])
+            except:
+                # Fallback: Find the first available and translate it to 'en'
+                transcript = transcript_list.filter(lambda t: True)[0].translate('en')
 
-        # Step 5: Fetch and join the text
         transcript_data = transcript.fetch()
-        full_transcript = " ".join([segment['text'] for segment in transcript_data])
-        return full_transcript.replace('\n', ' ')
+        return " ".join([segment['text'] for segment in transcript_data]).replace('\n', ' ')
         
     except Exception as e:
-        print(f"--- DETAILED YOUTUBE ERROR ---")
-        print(str(e))
-        print("------------------------------")
-        return None
-        print("------------------------------")
+        print(f"--- DETAILED YOUTUBE ERROR ---\n{str(e)}") # Helpful for logs
         return None
